@@ -352,15 +352,34 @@ function Kong.access()
   local ctx = ngx.ctx
   core.access.before(ctx)
 
+  ctx.delay_response = true
+
   for plugin, plugin_conf in plugins_iterator(singletons.loaded_plugins, true) do
-    plugin.handler:access(plugin_conf)
+    if not ctx.delayed_response then
+      plugin.handler:access(plugin_conf)
+    end
   end
+
+  if ctx.delayed_response then
+    return responses.flush_delayed_response(ctx)
+  end
+
+  ctx.delay_response = false
 
   core.access.after(ctx)
 end
 
 function Kong.header_filter()
   local ctx = ngx.ctx
+
+  --[[
+  -- Note: this phase needs to run for, e.g., CORS plugin to add its
+  -- appropriate headers...
+  if ctx.delayed_response then
+    return
+  end
+  --]]
+
   core.header_filter.before(ctx)
 
   for plugin, plugin_conf in plugins_iterator(singletons.loaded_plugins) do
@@ -372,6 +391,15 @@ end
 
 function Kong.body_filter()
   local ctx = ngx.ctx
+
+  --[[
+  -- If we execute header_filter, let's also execute body_filter to avoid
+  -- confusion.
+  if ctx.delayed_response then
+    return
+  end
+  --]]
+
   for plugin, plugin_conf in plugins_iterator(singletons.loaded_plugins) do
     plugin.handler:body_filter(plugin_conf)
   end

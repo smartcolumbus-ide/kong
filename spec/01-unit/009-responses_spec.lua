@@ -119,4 +119,27 @@ describe("Response helpers", function()
       assert.stub(ngx.exit).was.called_with(501)
     end)
   end)
+
+  describe("delayed response", function()
+    it("does not call ngx.say/ngx.exit if `ctx.delayed_response = true`", function()
+      ngx.ctx.delay_response = true
+
+      responses.send(401, "Unauthorized", { ["X-Hello"] = "world" })
+      assert.stub(ngx.say).was_not_called()
+      assert.stub(ngx.exit).was_not_called()
+      assert.not_equal("world", ngx.header["X-Hello"])
+    end)
+
+    it("flush_delayed_response() sends delayed response's status/header/body", function()
+      ngx.ctx.delay_response = true
+
+      responses.send(401, "Unauthorized", { ["X-Hello"] = "world" })
+      responses.flush_delayed_response(ngx.ctx)
+
+      assert.stub(ngx.say).was.called_with("{\"message\":\"Unauthorized\"}")
+      assert.stub(ngx.exit).was.called_with(401)
+      assert.equal("world", ngx.header["X-Hello"])
+      assert.is_false(ngx.ctx.delay_response)
+    end)
+  end)
 end)
