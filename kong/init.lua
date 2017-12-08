@@ -353,6 +353,7 @@ function Kong.access()
   core.access.before(ctx)
 
   ctx.delay_response = true
+  ctx.delayed_response_callback = responses.flush_delayed_response
 
   for plugin, plugin_conf in plugins_iterator(singletons.loaded_plugins, true) do
     if not ctx.delayed_response then
@@ -361,7 +362,7 @@ function Kong.access()
   end
 
   if ctx.delayed_response then
-    return responses.flush_delayed_response(ctx)
+    return ctx.delayed_response_callback(ctx)
   end
 
   ctx.delay_response = false

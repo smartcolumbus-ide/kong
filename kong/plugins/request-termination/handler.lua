@@ -9,6 +9,19 @@ local RequestTerminationHandler = BasePlugin:extend()
 RequestTerminationHandler.PRIORITY = 7
 RequestTerminationHandler.VERSION = "0.1.0"
 
+local function write(ctx)
+  local res = ctx.req_term_res
+
+  ngx.status = res.status
+
+  ngx.header["Content-Type"] = res.ct
+  ngx.header["Server"] = res.server
+
+  ngx.say(res.body)
+
+  return ngx.exit(res.status)
+end
+
 function RequestTerminationHandler:new()
   RequestTerminationHandler.super.new(self, "request-termination")
 end
@@ -21,17 +34,15 @@ function RequestTerminationHandler:access(conf)
   local body = conf.body
   local message = conf.message
   if body then
-    ngx.status = status_code
+    ngx.ctx.req_term_res = {
+      status = status_code,
+      ct = content_type or "application/json; charset=utf-8",
+      server = server_header,
+      body = body,
+    }
 
-    if not content_type then
-      content_type = "application/json; charset=utf-8";
-    end
-    ngx.header["Content-Type"] = content_type
-    ngx.header["Server"] = server_header
-
-    ngx.say(body)
-
-    return ngx.exit(status_code)
+    ngx.ctx.delayed_response = true --mock
+    ngx.ctx.delayed_response_callback = write
    else
     return responses.send(status_code, message)
   end
